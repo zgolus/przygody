@@ -1,61 +1,70 @@
 pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
--- przygoda pierwsza:
--- "zlap czakusia"
--- p1 w rogu ne
--- p2 w rogu nw
--- czaki losowo w dolnej polowie
--- jeden krok gracza = dwa psa
--- czaki skacze losowo po
--- calej planszy
--- gra sie konczy gdy gracz
--- zblizy sie do czaka
 
 solid_index = 0
-player_spr  = 000
-czak_spr    = 006
-actors      = {}
-is_caught		= false
+player_spr = 000
+czak_spr = 006
+actors = {}
+is_caught = false
+game_over = false
+game_over_txt = "udalo sie! brawo!"
+screenwidth = 128
+screenheight = 128
 
 function make_actor(x,y)
-	a 		  = {}
-	a.x     = x
-	a.y     = y
-	a.dx    = 0
-	a.dy    = 0
-	a.spr   = 0
+	a = {}
+	a.x = x
+	a.y = y
+	a.dx = 0
+	a.dy = 0
+	a.spr = 0
 	a.speed = 1
 	add(actors,a)
-
 	return a
 end
 
 function _init()
 	player = make_actor(1, 1)
 	player.spr = player_spr
+	player.on_move = function(self)
+		if is_near(self, czak) then
+			game_over = true
+			czak:sit()
+		else
+			czak:move()
+		end
+	end
 
 	czak = make_actor(8, 8)
 	czak.spr = czak_spr
+	czak.speed = 1
+	czak.sit = function(self)
+		self.spr = czak_spr + 1
+	end
+	czak.move = function(self)
+		local dir = flr(rnd(3))
+		if dir == 0 then self.dx += self.speed end
+		if dir == 1 then self.dx -= self.speed end
+		if dir == 2 then self.dy += self.speed end
+		if dir == 3 then self.dy -= self.speed end
+		printh(self.spr)
+	end
 end
 
 function _update()
 	control_actor(player)
 	foreach(actors,move_actor)
 	is_caught = is_near(player, czak)
-	if is_caught then
-		czak.spr = czak_spr + 1
-	end
 end
 
 function _draw()
 	cls()
 	map(0,0,0,0,16,16)
 	foreach(actors,draw_actor)
-	print("x " .. player.x, 0, 120, 7)
-	print("dx " .. player.dx, 32, 120, 7)
-	print("y " .. player.y, 64, 120, 7)
-	print("dy " .. player.dy, 98, 120, 7)
+	if game_over then
+		print(game_over_txt, hcenter(game_over_txt), screenheight/4, 0)
+	end
 end
 
 function draw_actor(a)
@@ -83,24 +92,35 @@ function is_near(a1, a2)
 end
 
 function control_actor(a)
+	if game_over then
+		return
+	end
 	if btnp(0) then
 		a.dx -= a.speed
+		a.on_move(a)
 	end
 	if btnp(1) then
 		a.dx += a.speed
+		a.on_move(a)
 	end
 	if btnp(2) then
 		a.dy -= a.speed
+		a.on_move(a)
 	end
 	if btnp(3) then
 		a.dy += a.speed
+		a.on_move(a)
 	end
 end
 
 function is_solid(sprx, spry)
 	sprn = mget(sprx, spry)
-
 	return fget(sprn, solid_index)
+end
+
+--- center align from: pico-8.wikia.com/wiki/centering_text
+function hcenter(s)
+	return (screenwidth / 2)-flr((#s*4)/2)
 end
 
 
