@@ -2,29 +2,51 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
-solid_index = 0
-player_spr = 000
-czak_spr = 006
-actors = {}
-is_caught = false
-game_over = false
-game_over_txt = "udalo sie! brawo!"
+scene = "title"
 screenwidth = 128
 screenheight = 128
 
-function make_actor(x,y)
-	a = {}
-	a.x = x
-	a.y = y
-	a.dx = 0
-	a.dy = 0
-	a.spr = 0
-	a.speed = 1
-	add(actors,a)
-	return a
+function _init()
+	if scene == "title" then
+		title = "przygody lusi i baza"
+	elseif scene == "game" then
+		init_game()
+	end
 end
 
-function _init()
+function _update()
+	if scene == "title" then
+		if (btnp(4)) then
+			scene = "game"
+			_init()
+		end
+	elseif scene == "game" then
+		control_actor(player)
+		foreach(actors,move_actor)
+	end
+end
+
+function _draw()
+	cls()
+	map(0,0,0,0,16,16)
+	if scene == "title" then
+		print(title, hcenter(title), screenheight/4, 0)
+	elseif scene == "game" then
+		foreach(actors,draw_actor)
+		if game_over then
+			print(game_over_msg, hcenter(game_over_msg), screenheight/4, 0)
+		end
+	end
+end
+
+function init_game()
+	solid_index = 0
+	player_spr = 000
+	czak_spr = 006
+	actors = {}
+	game_over = false
+	game_over_msg = "udalo sie! brawo!"
+
 	player = make_actor(1, 1)
 	player.spr = player_spr
 	player.on_move = function(self)
@@ -52,20 +74,18 @@ function _init()
 	end
 end
 
-function _update()
-	control_actor(player)
-	foreach(actors,move_actor)
-	is_caught = is_near(player, czak)
+function make_actor(x,y)
+	a = {}
+	a.x = x
+	a.y = y
+	a.dx = 0
+	a.dy = 0
+	a.spr = 0
+	a.speed = 1
+	add(actors,a)
+	return a
 end
 
-function _draw()
-	cls()
-	map(0,0,0,0,16,16)
-	foreach(actors,draw_actor)
-	if game_over then
-		print(game_over_txt, hcenter(game_over_txt), screenheight/4, 0)
-	end
-end
 
 function draw_actor(a)
 	local sx = (a.x * 8)
