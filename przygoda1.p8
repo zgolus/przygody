@@ -2,12 +2,17 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 
+-- collision detection taken from
+-- collide.p8 demo by zep
+
 scene = "title"
 screenwidth = 128
 screenheight = 128
 
 function _init()
 	title = "przygody lusi i baza"
+	sub1 = "przygoda pierwsza:"
+	sub2 = "zlap czakusia!"
 end
 
 function _update()
@@ -23,7 +28,9 @@ function _draw()
 	pal(13, 0);
 	map(0,0,0,0,16,16)
 	if scene == "title" then
-		print(title, hcenter(title), screenheight/4, 0)
+		print(title, hcenter(title), 20, 0)
+	 print(sub1, hcenter(sub1), 30, 0)
+	 print(sub2, hcenter(sub2), 40, 0)
 	elseif scene == "game" then
 		foreach(actors,draw_actor)
 		if game_over then
@@ -51,6 +58,8 @@ function init_game()
 	end
 	add(players, p1)
 
+
+
 	p2 = make_actor(14, 1)
 	p2.spr = p2_spr
 	p2.player_number = 1
@@ -62,17 +71,26 @@ function init_game()
 
 	czak = make_actor(8, 8)
 	czak.spr = czak_spr
-	czak.speed = 1
+	czak.speed = 2
 	czak.sit = function(self)
 		self.spr = czak_spr + 1
 	end
 	czak.move = function(self)
 		if not game_over then
-		local dir = flr(rnd(3))
-			if dir == 0 then self.dx += self.speed end
-			if dir == 1 then self.dx -= self.speed end
-			if dir == 2 then self.dy += self.speed end
-			if dir == 3 then self.dy -= self.speed end
+		local dir = flr(rnd(4))
+			if dir == 0 then
+				self.dx += self.speed
+			end
+			if dir == 1 then
+				self.dx -= self.speed
+			end
+			if dir == 2 then
+				self.dy += self.speed
+			end
+			if dir == 3 then
+				self.dy -= self.speed
+			end
+
 		end
 	end
 end
@@ -110,10 +128,10 @@ function draw_actor(a)
 end
 
 function move_actor(a)
-	if not is_solid(a.x + a.dx, a.y) then
+	if is_move_legal(a) then
 		a.x += a.dx
 	end
-	if not is_solid(a.x, a.y + a.dy) then
+	if is_move_legal(a) then
 		a.y += a.dy
 	end
 	a.dx = 0
@@ -121,12 +139,9 @@ function move_actor(a)
 end
 
 function is_near(a1, a2)
-	printh("is_near? a1x: " .. a1.x .. " a2.x: " .. a2.x .. " a1.y: " .. a1.y .. " a2.y: " .. a2.y)
 	if (1 >= abs(a2.x - a1.x)) and (1 >= abs(a2.y - a1.y)) then
-		printh("yes")
 		return true
 	end
-	printh("no")
 	return false
 end
 
@@ -163,6 +178,35 @@ end
 function is_solid(sprx, spry)
 	sprn = mget(sprx, spry)
 	return fget(sprn, solid_index)
+end
+
+function is_within_level(x, y)
+	if x >= 0  and x <= 15 and y >= 0  and y <= 15 then
+		return true
+	end
+	return false
+end
+
+function is_overlapping(a)
+	for actor in all(actors) do
+		if actor != a then
+			if actor.x == a.x + a.dx and actor.y == a.y + a.dy then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function is_move_legal(a)
+	printh(is_overlapping(a))
+	if not is_solid(a.x + a.dx, a.y + a.dy) and
+		 is_within_level(a.x + a.dx, a.y + a.dy) and
+	 	 not is_overlapping(a)
+	then
+		return true
+	end
+	return false
 end
 
 --- center align from: pico-8.wikia.com/wiki/centering_text
@@ -466,3 +510,4 @@ __music__
 00 00000000
 00 00000000
 00 00000000
+
