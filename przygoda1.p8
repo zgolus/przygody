@@ -42,8 +42,6 @@ end
 
 function init_game()
 	solid_index   = 0
-	p1_spr        = 000
-	p2_spr        = 016
 	czak_spr      = 006
 	actors        = {}
 	players       = {}
@@ -52,34 +50,23 @@ function init_game()
 	winner_msg = "wygrywa: "
 	winner        = ""
 
-	p1 = make_actor(1, 1)
+	p1 = make_actor(1, 1, 000)
 	p1.name = "lusia"
-	p1.spr = p1_spr
 	p1.player_number = 0
-	p1.on_move = function(self)
-		sfx(0)
-		czak:move()
-	end
+	p1.on_move = player_move
 	add(players, p1)
 
-
-
-	p2 = make_actor(14, 1)
+	p2 = make_actor(14, 1, 016)
 	p2.name = "baz"
-	p2.spr = p2_spr
 	p2.player_number = 1
-	p2.on_move = function(self)
-		sfx(0)
-		czak:move()
-	end
+	p2.on_move = player_move
 	add(players, p2)
 
-	czak = make_actor(8, 8)
-	czak.spr = czak_spr
+	czak = make_actor(8, 8, 006)
 	czak.speed = 2
-	czak.sit = function(self)
-		self.spr = czak_spr + 1
-	end
+	czak.comfort_zone = 2
+	czak.sit = sit
+	czak.bark = bark
 	czak.move = function(self)
 		if not game_over then
 		local dir = flr(rnd(4))
@@ -112,30 +99,43 @@ function update_game()
 	foreach(players, is_czak_caught)
 end
 
-function make_actor(x,y)
+function make_actor(x, y, init_spr)
 	a = {}
 	a.x = x
 	a.y = y
 	a.dx = 0
 	a.dy = 0
-	a.spr = 0
+	a.init_spr = init_spr
+	a.curr_spr = a.init_spr
 	a.speed = 1
+	a.comfort_zone = 1
+	a.bark = bark
 	add(actors,a)
 	return a
 end
 
+bark = function()
+	return 'woof!'
+end
+
+sit = function(a)
+	a.curr_spr = a.init_spr + 1
+end
+
+player_move = function()
+	sfx(0)
+	czak:move()
+end
 
 function draw_actor(a)
 	local sx = (a.x * 8)
 	local sy = (a.y * 8)
-	spr(a.spr, sx, sy)
+	spr(a.curr_spr, sx, sy)
 end
 
 function move_actor(a)
 	if is_move_legal(a) then
 		a.x += a.dx
-	end
-	if is_move_legal(a) then
 		a.y += a.dy
 	end
 	a.dx = 0
@@ -203,11 +203,23 @@ function is_overlapping(a)
 	return false
 end
 
+function respects_comfort_zone(a1)
+	for a2 in all(actors) do
+		if a1 == a2 then
+			if a1.comfort_zone <= a1.x + a1.dx - a2.x and
+				 a1.comfort_zone <= a1.y + a1.dy - a2.y
+			then
+				return true
+			end
+		end
+	end
+	return true
+end
+
 function is_move_legal(a)
-	printh(is_overlapping(a))
 	if not is_solid(a.x + a.dx, a.y + a.dy) and
 		 is_within_level(a.x + a.dx, a.y + a.dy) and
-	 	 not is_overlapping(a)
+	 	 respects_comfort_zone(a)
 	then
 		return true
 	end
@@ -218,6 +230,58 @@ end
 function hcenter(s)
 	return (screenwidth / 2)-flr((#s*4)/2)
 end
+
+-- pico-test
+function test(title,f)
+local desc=function(msg,f)
+ printh('⚡:desc:'..msg)
+ f()
+end
+local it=function(msg,f)
+ printh('⚡:it:'..msg)
+ local xs={f()}
+ for i=1,#xs do
+  if xs[i] == true then
+   printh('⚡:assert:true')
+  else
+   printh('⚡:assert:false')
+  end
+ end
+ printh('⚡:it_end')
+end
+printh('⚡:test:'..title)
+f(desc,it)
+printh('⚡:test_end')
+end
+
+test('czak', function(desc,it)
+	desc('czak', function()
+		local czak = make_actor(0, 0, 006)
+		it('should have current sprite equal to initial', function()
+			return czak.curr_spr == 006
+		end)
+	end)
+
+  desc('czak.bark()', function()
+		local czak = make_actor(0, 0, 006)
+		local bark = czak.bark
+    it('should return type string', function()
+      return 'string' == type(bark())
+    end)
+    it('should bark', function()
+			return 'woof!' == bark()
+    end)
+  end)
+
+	desc('czak.sit()', function()
+		local czak = make_actor(0, 0, 006)
+		czak.sit = sit
+		it('should move sprit index', function()
+			czak:sit()
+			return czak.curr_spr == 007
+    end)
+  end)
+end)
 
 
 __gfx__
@@ -515,4 +579,3 @@ __music__
 00 00000000
 00 00000000
 00 00000000
-
