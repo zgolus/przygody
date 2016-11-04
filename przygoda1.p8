@@ -67,22 +67,10 @@ function init_game()
 	czak.comfort_zone = 2
 	czak.sit = sit
 	czak.bark = bark
-	czak.move = function(self)
-		if not game_over then
-		local dir = flr(rnd(4))
-			if dir == 0 then
-				self.dx += self.speed
-			end
-			if dir == 1 then
-				self.dx -= self.speed
-			end
-			if dir == 2 then
-				self.dy += self.speed
-			end
-			if dir == 3 then
-				self.dy -= self.speed
-			end
-		end
+	czak.move = czak_move
+	czak.on_illegal_move = function(self)
+		printh 'illegal move of Czak'
+		czak_move(self)
 	end
 end
 
@@ -108,8 +96,11 @@ function make_actor(x, y, init_spr)
 	a.init_spr = init_spr
 	a.curr_spr = a.init_spr
 	a.speed = 1
-	a.comfort_zone = 1
+	a.comfort_zone = 0
 	a.bark = bark
+	a.on_illegal_move = function(self)
+		printh 'illegal move attempt'
+	end
 	add(actors,a)
 	return a
 end
@@ -120,6 +111,25 @@ end
 
 sit = function(a)
 	a.curr_spr = a.init_spr + 1
+end
+
+czak_move = function(a)
+	if not game_over then
+		local dir = flr(rnd(4))
+		printh(dir)
+		if dir == 0 then
+			a.dx = a.speed
+		end
+		if dir == 1 then
+			a.dx = -a.speed
+		end
+		if dir == 2 then
+			a.dy = a.speed
+		end
+		if dir == 3 then
+			a.dy = -a.speed
+		end
+	end
 end
 
 player_move = function()
@@ -137,9 +147,13 @@ function move_actor(a)
 	if is_move_legal(a) then
 		a.x += a.dx
 		a.y += a.dy
+		a.dx = 0
+		a.dy = 0
+	else
+		a.on_illegal_move(a)
 	end
-	a.dx = 0
-	a.dy = 0
+	-- a.dx = 0
+	-- a.dy = 0
 end
 
 function is_near(a1, a2)
@@ -164,25 +178,35 @@ function control_actor(a)
 	end
 	if btnp(0, a.player_number) then
 		a.dx -= a.speed
-		a.on_move(a)
+		a.on_move()
 	end
 	if btnp(1, a.player_number) then
 		a.dx += a.speed
-		a.on_move(a)
+		a.on_move()
 	end
 	if btnp(2, a.player_number) then
 		a.dy -= a.speed
-		a.on_move(a)
+		a.on_move()
 	end
 	if btnp(3, a.player_number) then
 		a.dy += a.speed
-		a.on_move(a)
+		a.on_move()
 	end
 end
 
 function is_solid(sprx, spry)
 	sprn = mget(sprx, spry)
 	return fget(sprn, solid_index)
+end
+
+function is_move_legal(a)
+	if not is_solid(a.x + a.dx, a.y + a.dy) and
+		 is_within_level(a.x + a.dx, a.y + a.dy) and
+	 	 respects_comfort_zone(a, actors)
+	then
+		return true
+	end
+	return false
 end
 
 function is_within_level(x, y)
@@ -203,27 +227,18 @@ function is_overlapping(a)
 	return false
 end
 
-function respects_comfort_zone(a1)
-	for a2 in all(actors) do
-		if a1 == a2 then
-			if a1.comfort_zone <= a1.x + a1.dx - a2.x and
-				 a1.comfort_zone <= a1.y + a1.dy - a2.y
+function respects_comfort_zone(actor, actors)
+	for other in all(actors) do
+		if actor != other then
+			-- printh(other.x)
+			if actor.comfort_zone >= abs(actor.x + actor.dx - other.x) and
+				 actor.comfort_zone >= abs(actor.y + actor.dy - other.y)
 			then
-				return true
+				return false
 			end
 		end
 	end
 	return true
-end
-
-function is_move_legal(a)
-	if not is_solid(a.x + a.dx, a.y + a.dy) and
-		 is_within_level(a.x + a.dx, a.y + a.dy) and
-	 	 respects_comfort_zone(a)
-	then
-		return true
-	end
-	return false
 end
 
 --- center align from: pico-8.wikia.com/wiki/centering_text
@@ -231,29 +246,30 @@ function hcenter(s)
 	return (screenwidth / 2)-flr((#s*4)/2)
 end
 
--- pico-test
-function test(title,f)
-local desc=function(msg,f)
- printh('⚡:desc:'..msg)
- f()
-end
-local it=function(msg,f)
- printh('⚡:it:'..msg)
- local xs={f()}
- for i=1,#xs do
-  if xs[i] == true then
-   printh('⚡:assert:true')
-  else
-   printh('⚡:assert:false')
-  end
- end
- printh('⚡:it_end')
-end
-printh('⚡:test:'..title)
-f(desc,it)
-printh('⚡:test_end')
+-- testing library
+function test(title, f)
+	local desc = function(msg, f)
+		printh('⚡:desc:'..msg)
+ 		f()
+	end
+	local it = function(msg, f)
+		printh('⚡:it:'..msg)
+		local xs={f()}
+		for i=1,#xs do
+			if xs[i] == true then
+				printh('⚡:assert:true')
+			else
+				printh('⚡:assert:false')
+			end
+		end
+		printh('⚡:it_end')
+	end
+	printh('⚡:test:'..title)
+	f(desc,it)
+	printh('⚡:test_end')
 end
 
+-- tests
 test('czak', function(desc,it)
 	desc('czak', function()
 		local czak = make_actor(0, 0, 006)
@@ -262,16 +278,16 @@ test('czak', function(desc,it)
 		end)
 	end)
 
-  desc('czak.bark()', function()
+	desc('czak.bark()', function()
 		local czak = make_actor(0, 0, 006)
 		local bark = czak.bark
-    it('should return type string', function()
-      return 'string' == type(bark())
-    end)
-    it('should bark', function()
+		it('should return type string', function()
+			return 'string' == type(bark())
+		end)
+		it('should bark', function()
 			return 'woof!' == bark()
-    end)
-  end)
+		end)
+	end)
 
 	desc('czak.sit()', function()
 		local czak = make_actor(0, 0, 006)
@@ -279,10 +295,36 @@ test('czak', function(desc,it)
 		it('should move sprit index', function()
 			czak:sit()
 			return czak.curr_spr == 007
-    end)
-  end)
-end)
+  	end)
+	end)
 
+	desc('czak.move()', function()
+		local czak = make_actor(0, 0, 006)
+		czak.speed = 5
+		czak.move = czak_move
+		it('should increase dx or dy', function()
+			czak:move()
+			return abs(czak.dx) == 5 or abs(czak.dy) == 5
+  	end)
+	end)
+
+	desc('respects_comfort_zone', function()
+		local a1 = make_actor(5, 5, 0)
+		a1.comfort_zone = 1
+		local a2 = make_actor(7, 5, 0)
+		a2.comfort_zone = 1
+		local actors = {}
+		add(actors, a1)
+		add(actors, a2)
+		it('should respect comfort_zone', function()
+			return true == respects_comfort_zone(a1, actors)
+		end)
+		it('should respect comfort_zone', function()
+			a1.dx = 1
+			return false == respects_comfort_zone(a1, actors)
+		end)
+	end)
+end)
 
 __gfx__
 0aaaaaa00aaaaaa00aaaaa000aaaaa000aaaaaa00aaaaaa00000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb00000000000000000000000000000000
